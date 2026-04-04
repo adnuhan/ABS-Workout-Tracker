@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>ABS Workout Tracker</title>
+    <!-- Inline SVG favicon to avoid adding separate file -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2322c55e'/%3E%3Ctext x='50' y='58' font-size='42' text-anchor='middle' fill='white' font-family='Inter, system-ui, sans-serif'%3EABS%3C/text%3E%3C/svg%3E"
+    />
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        transition:
+          background 0.25s ease,
+          color 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      :root {
+        --progress-box: var(--bg-page);
+        /* Light mode (Apple-style soft gray) */
+        --bg-page: #f5f5f7; /* Primary Background */
+        --card-bg: #ffffff; /* Secondary Background / cards */
+        --text-primary: #1c1c1e; /* Primary text */
+        --text-secondary: #6e6e73; /* Secondary text */
+        --text-muted: #8e8e93; /* Muted text */
+        --border: #e5e5ea; /* Subtle border */
+        --divider: #d1d1d6; /* Divider line */
+        --day-default: #f2f2f7; /* Calendar default tile */
+        --day-hover: #e5e5ea; /* Calendar hover */
+        --day-completed: #34c759; /* Completed day */
+        --glow-streak:
+          0 0 0 2px #ffd60a, 0 0 0 4px #ffd60a,
+          0 0 12px 2px rgba(255, 214, 10, 0.25);
+        --progress-red: #ff9f0a;
+        --progress-orange: #ff9f0a;
+        --progress-green: #34c759;
+        --btn-bg: #ffffff; /* use card background */
+        --btn-hover: #f2f2f7; /* Elevated surface */
+        --dropdown-bg: #ffffff;
+        --chart-grid: #d1d1d6;
+        --toggle-bg: #12202a;
+        --glass-white: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.14);
+        --accent-primary: #007aff; /* Primary Accent for light mode */
+      }
+
+      body.dark {
+        /* Dark mode (Apple-style deep) */
+        --bg-page: #0b0f14; /* Primary Background */
+        --card-bg: #111827; /* Secondary Background / cards */
+        --text-primary: #f9fafb; /* Primary text */
+        --text-secondary: #9ca3af; /* Secondary text */
+        --text-muted: #6b7280; /* Muted text */
+        --border: #1f2937; /* Subtle border */
+        --divider: #374151; /* Divider line */
+        --day-default: #111827; /* Calendar default tile */
+        --day-hover: #1f2937; /* Calendar hover */
+        --day-completed: #30d158; /* Completed day */
+        --glow-streak:
+          0 0 0 2px #ffd60a, 0 0 0 4px #ffd60a,
+          0 0 14px 2px rgba(255, 214, 10, 0.25);
+        --progress-red: #ef4444;
+        --progress-orange: #ffd60a;
+        --progress-green: #30d158;
+        --btn-bg: #111827; /* use card background */
+        --btn-hover: #1f2937; /* Elevated surface */
+        --dropdown-bg: #111827;
+        --chart-grid: #374151;
+        --toggle-bg: #12202a;
+        --glass-white: rgba(255, 255, 255, 0.04);
+        --glass-border: rgba(255, 255, 255, 0.06);
+        --accent-primary: #0a84ff; /* Primary Accent for dark mode */
+        /* Dark background gradient requested */
+        background: linear-gradient(180deg, #0b1220 0%, #0a0f1a 100%);
+        --progress-box: #0f172a; /* progress box background in dark mode */
+      }
+
+      body {
+        background: var(--bg-page);
+        color: var(--text-primary);
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        padding: 1.5rem;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      /* Header with theme toggle at right top */
+      .header {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1.5rem;
+      }
+
+      .theme-toggle {
+        background: var(--btn-bg);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+      }
+
+      .theme-toggle:hover {
+        background: var(--btn-hover);
+        transform: scale(0.98);
+      }
+
+      /* Custom toggle widget styles (adapted) */
+      #mode-toggle {
+        display: none;
+      }
+      .toggle-wrapper {
+        cursor: pointer;
+        perspective: 1000px;
+        display: inline-block;
+      }
+      .toggle-background {
+        position: relative;
+        width: 120px;
+        height: 44px;
+        background: var(--toggle-bg);
+        border-radius: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.45);
+      }
+      .glass-sphere {
+        position: absolute;
+        left: 5px;
+        width: 50px;
+        height: 50px;
+        background: var(--glass-white);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--glass-border);
+        border-radius: 50%;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: all 0.3s ease;
+        z-index: 2;
+      }
+      .icon {
+        position: absolute;
+        font-size: 18px;
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
+      }
+      .label-text {
+        color: #fff;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        z-index: 1;
+        transition: opacity 0.25s;
+      }
+
+      /* States */
+      .moon,
+      #mode-toggle:checked ~ .toggle-background .sun {
+        opacity: 0;
+        transform: rotate(-90deg);
+      }
+      #mode-toggle:checked ~ .toggle-background .moon {
+        opacity: 1;
+        transform: rotate(0deg);
+      }
+      #mode-toggle:checked ~ .toggle-background .glass-sphere {
+        transform: translateX(60px);
+      }
+      #mode-toggle:checked ~ .toggle-background .dark {
+        opacity: 0;
+      }
+      #mode-toggle:not(:checked) ~ .toggle-background .light {
+        opacity: 0;
+      }
+
+      /* Make month/year selects visually match the view buttons */
+      .view-select {
+        padding: 0.35rem 0.6rem;
+        border-radius: 0.6rem;
+        border: 1px solid var(--border);
+        background: var(--dropdown-bg);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.78rem;
+        color: var(--text-primary);
+      }
+      .view-select:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.06);
+      }
+
+      /* adjust select colors in dark mode */
+      body.dark .view-select {
+        background: var(--dropdown-bg);
+        color: var(--text-primary);
+        border-color: var(--border);
+      }
+
+      /* Dashboard layout */
+      .dashboard {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.8rem;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border-radius: 1.5rem;
+        padding: 1.2rem;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      /* stronger card elevation in dark mode for better separation */
+      body.dark .card {
+        box-shadow: 0 8px 30px rgba(3, 8, 15, 0.6);
+        /* card border override for deep theme */
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* Calendar Header with year/month selectors at right */
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .calendar-header h2 {
+        font-size: 1.3rem;
+      }
+
+      .calendar-controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .view-toggle {
+        display: inline-flex;
+        gap: 0.4rem;
+        align-items: center;
+      }
+
+      .view-btn {
+        padding: 0.35rem 0.6rem;
+        border-radius: 0.6rem;
+        border: 1px solid var(--border);
+        background: var(--dropdown-bg);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.78rem;
+      }
+
+      .view-btn.active {
+        background: #0a84ff;
+        color: white;
+        box-shadow: 0 0 10px rgba(10, 132, 255, 0.5);
+      }
+
+      /* general .active rule as requested */
+      .active {
+        background: #0a84ff !important;
+        box-shadow: 0 0 10px rgba(10, 132, 255, 0.5) !important;
+        color: white !important;
+      }
+
+      .day-cell:hover {
+        background: var(--day-hover);
+      }
+
+      .weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+      }
+
+      .day-cell {
+        aspect-ratio: 1 / 1;
+        background: var(--day-default);
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        position: relative;
+        font-size: 0.85rem;
+        border: 1px solid transparent;
+      }
+
+      .day-cell.completed {
+        background: var(--day-completed);
+        color: white;
+        transform: scale(0.98);
+        animation: pop 0.2s ease-out;
+      }
+
+      .day-cell:hover {
+        background: var(--day-hover);
+      }
+
+      .day-cell.streak-glow {
+        box-shadow: var(--glow-streak);
+        animation: pulseGlow 1s infinite;
+      }
+
+      @keyframes pop {
+        0% {
+          transform: scale(0.9);
+          opacity: 0.7;
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      @keyframes pulseGlow {
+        0% {
+          box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4);
+        }
+        70% {
+          box-shadow: 0 0 0 6px rgba(250, 204, 21, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+        }
+      }
+
+      .milestone-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 1rem;
+        animation: dropTrophy 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      @keyframes dropTrophy {
+        0% {
+          transform: translateY(-20px) rotate(0deg);
+          opacity: 0;
+        }
+        70% {
+          transform: translateY(4px) rotate(8deg);
+        }
+        100% {
+          transform: translateY(0) rotate(0deg);
+          opacity: 1;
+        }
+      }
+
+      /* Past days are locked and non-interactive */
+      .day-cell.past-day {
+        opacity: 0.55;
+        filter: grayscale(30%);
+        cursor: not-allowed;
+        pointer-events: none; /* ensures clicks don't fire */
+        transform: none;
+      }
+
+      /* Combined Stats Card */
+      .stats-card {
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem;
+      }
+
+      .stats-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .stats-header h3 {
+        font-size: 1.2rem;
+      }
+
+      .export-btn {
+        background: #22c55e20;
+        border: 1px solid #22c55e;
+        padding: 0.4rem 1rem;
+        border-radius: 2rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+      }
+
+      .export-btn:hover {
+        background: #22c55e40;
+        transform: scale(0.98);
+      }
+
+      /* Reset button style */
+      .reset-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        padding: 0.4rem 1rem;
+        border-radius: 2rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+      }
+
+      .reset-btn:hover {
+        background: var(--btn-hover);
+        transform: scale(0.98);
+      }
+
+      .progress-stats {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.8rem;
+        background: var(--progress-box);
+        border-radius: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .stat-item {
+        text-align: center;
+        flex: 1;
+      }
+
+      .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: var(--day-completed);
+      }
+
+      .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      .progress-bar-bg {
+        background: var(--border);
+        border-radius: 2rem;
+        height: 10px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+
+      .progress-fill {
+        width: 0%;
+        height: 100%;
+        border-radius: 2rem;
+        transition: width 0.4s ease;
+      }
+
+      /* Improved pill-style progress */
+      /* Progress pill removed — donut serves as the monthly progress indicator */
+
+      .chart-container {
+        margin-top: 0.5rem;
+        height: 200px;
+      }
+
+      .weekly-chart-container {
+        height: 200px;
+      }
+
+      .motivation-popup {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card-bg);
+        color: var(--text-primary);
+        padding: 0.75rem 1.5rem;
+        border-radius: 40px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        border-left: 5px solid #facc15;
+        z-index: 1000;
+        font-weight: bold;
+        backdrop-filter: blur(8px);
+        animation: fadeUp 0.3s ease;
+        pointer-events: none;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 2rem;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      @media (max-width: 860px) {
+        .dashboard {
+          grid-template-columns: 1fr;
+        }
+        body {
+          padding: 1rem;
+        }
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+        }
+      }
+
+      /* Streak & donut styles removed per user request */
+
+      /* Year view styles */
+      .year-view {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+
+      .month-card {
+        background: var(--bg-page);
+        border: 1px solid var(--border);
+        padding: 0.6rem;
+        border-radius: 0.85rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      .month-card .month-name {
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .mini-progress-bg {
+        width: 80%;
+        height: 8px;
+        background: var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .mini-progress-fill {
+        height: 100%;
+        background: var(--day-completed);
+        width: 0%;
+        transition: width 0.35s ease;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header"></div>
+      <div class="dashboard">
+        <!-- LEFT: Calendar Dashboard -->
+        <div class="card">
+          <div class="calendar-header">
+            <h2>📅 Calendar Dashboard</h2>
+            <div class="calendar-controls">
+              <div class="view-toggle">
+                <button id="monthViewBtn" class="view-btn active">Month</button>
+                <button id="yearViewBtn" class="view-btn">Year</button>
+              </div>
+              <select id="monthSelect" class="view-select"></select>
+              <select id="yearSelect" class="view-select"></select>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 1rem;
+            "
+          ></div>
+          <div class="weekdays">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span
+            ><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- RIGHT: Combined Stats Card (Weekly Chart + Monthly Completion Overview + Progress Bar) -->
+        <div class="card stats-card">
+          <div class="stats-header">
+            <h3>📊 Progress Dashboard</h3>
+            <!-- Replaced plain button with custom toggle (text label removed per user request) -->
+            <label class="toggle-wrapper">
+              <input type="checkbox" id="mode-toggle" />
+              <div class="toggle-background">
+                <span class="label-text dark">Dark</span>
+                <span class="label-text light">Light</span>
+                <div class="glass-sphere">
+                  <div class="icon sun">☀️</div>
+                  <div class="icon moon">🌙</div>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Streak and monthly donut removed per user request -->
+
+          <!-- Progress Stats Overview -->
+          <div class="progress-stats">
+            <div class="stat-item">
+              <div class="stat-value" id="monthlyCompletedCount">0</div>
+              <div class="stat-label">Days Completed</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="monthlyTotalDays">0</div>
+              <div class="stat-label">Total Days</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="monthlyCompletionRate">0%</div>
+              <div class="stat-label">Completion Rate</div>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div>
+            <div
+              style="
+                display: flex;
+                justify-content: flex-end;
+                margin-bottom: 6px;
+              "
+            >
+              <span id="progressPercent">0%</span>
+            </div>
+            <!-- Monthly progress visual: donut chart (removed pill) -->
+          </div>
+
+          <!-- Weekly Consistency Chart -->
+          <div>
+            <h4 style="margin: 0.5rem 0 0.5rem 0; font-size: 0.95rem">
+              📈 Weekly Consistency
+            </h4>
+            <div class="weekly-chart-container">
+              <canvas
+                id="weeklyChart"
+                width="400"
+                height="160"
+                style="max-height: 160px; width: 100%"
+              ></canvas>
+            </div>
+            <p style="font-size: 11px; margin-top: 6px; text-align: center">
+              Completed days per week (Sun-Sat)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+
+  <script>
+    // ---------- STORAGE ----------
+    const STORAGE_KEY = "absTrackerData";
+    let appData = {};
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let weeklyChartInstance = null;
+    let viewMode = "month"; // 'month' or 'year'
+    // Streak tracking (computed across all stored months)
+    let currentStreak = 0;
+    let longestStreak = 0;
+
+    function getMonthKey(year, month) {
+      return `${year}-${month}`;
+    }
+
+    function loadData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        appData = JSON.parse(stored);
+      } else {
+        appData = {};
+      }
+      const key = getMonthKey(currentYear, currentMonth);
+      if (!appData[key]) {
+        appData[key] = {};
+      }
+      saveToLocal();
+    }
+
+    function saveToLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+
+    function getDaysInMonth(year, month) {
+      return new Date(year, month + 1, 0).getDate();
+    }
+
+    function getFirstWeekday(year, month) {
+      return new Date(year, month, 1).getDay();
+    }
+
+    // Get consecutive streak within current month for glow effect
+    function getConsecutiveRangesInMonth(monthData, daysInMonth) {
+      let ranges = [];
+      let temp = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (monthData[d] === true) {
+          temp.push(d);
+        } else {
+          if (temp.length > 0) ranges.push([...temp]);
+          temp = [];
+        }
+      }
+      if (temp.length > 0) ranges.push(temp);
+      return ranges;
+    }
+
+    // Build a set of completed dates across all months in appData as YYYY-MM-DD
+    function buildCompletedDateSet() {
+      const set = new Set();
+      for (const key in appData) {
+        // key format is `${year}-${month}` where month is 0-based
+        const [yStr, mStr] = key.split("-");
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10);
+        const monthData = appData[key] || {};
+        for (const dStr in monthData) {
+          if (monthData[dStr] === true) {
+            const day = parseInt(dStr, 10);
+            const dt = new Date(y, m, day);
+            const iso = dt.toISOString().slice(0, 10); // YYYY-MM-DD
+            set.add(iso);
+          }
+        }
+      }
+      return set;
+    }
+
+    // Compute current streak (consecutive days) ending on today or the most recent completed day <= today
+    function computeCurrentStreak() {
+      const completed = buildCompletedDateSet();
+      const today = new Date();
+      // normalize to local date string
+      function toISO(d) {
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yy}-${mm}-${dd}`;
+      }
+
+      // Find the most recent completed date <= today
+      let cursor = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+      );
+      let found = null;
+      for (let i = 0; i < 3650; i++) {
+        // safety limit ~10 years
+        const iso = toISO(cursor);
+        if (completed.has(iso)) {
+          found = new Date(cursor);
+          break;
+        }
+        // step back one day
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      if (!found) return 0;
+
+      // Count consecutive days backwards from found
+      let count = 0;
+      cursor = new Date(found);
+      while (true) {
+        const iso = toISO(cursor);
+        if (completed.has(iso)) {
+          count++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else break;
+      }
+      return count;
+    }
+
+    // Compute the longest consecutive streak across all tracked days
+    function computeLongestStreak() {
+      const completed = Array.from(buildCompletedDateSet()).sort(); // sorted ISO strings
+      if (completed.length === 0) return 0;
+
+      // helper to parse ISO YYYY-MM-DD into Date
+      function fromISO(s) {
+        const [yy, mm, dd] = s.split("-").map((x) => parseInt(x, 10));
+        return new Date(yy, mm - 1, dd);
+      }
+
+      let longest = 0;
+      let current = 1;
+      for (let i = 1; i < completed.length; i++) {
+        const prev = fromISO(completed[i - 1]);
+        const cur = fromISO(completed[i]);
+        const diff = Math.round((cur - prev) / (24 * 3600 * 1000));
+        if (diff === 1) {
+          current++;
+        } else if (diff === 0) {
+          // duplicate same day entry — ignore
+        } else {
+          if (current > longest) longest = current;
+          current = 1;
+        }
+      }
+      if (current > longest) longest = current;
+      return longest;
+    }
+
+    function updateStreaks() {
+      currentStreak = computeCurrentStreak();
+      longestStreak = computeLongestStreak();
+      // expose for console / external use
+      window.getCurrentStreak = () => currentStreak;
+      window.getLongestStreak = () => longestStreak;
+      // For now, just log values to console for visibility
+      console.debug("Streaks updated:", { currentStreak, longestStreak });
+      return { currentStreak, longestStreak };
+    }
+
+    function showMotivationPopup(msg) {
+      let popup = document.createElement("div");
+      popup.className = "motivation-popup";
+      popup.innerText = msg + " 💪✨";
+      document.body.appendChild(popup);
+      setTimeout(() => {
+        popup.remove();
+      }, 3000);
+    }
+
+    function toggleDay(dayNumber) {
+      const key = getMonthKey(currentYear, currentMonth);
+      if (!appData[key]) appData[key] = {};
+      const isCompleted = appData[key][dayNumber] === true;
+      const newStatus = !isCompleted;
+      appData[key][dayNumber] = newStatus;
+      saveToLocal();
+
+      // update derived values
+      updateStreaks();
+
+      renderCalendar();
+      updateProgressBarAndStats();
+      updateWeeklyChart();
+    }
+
+    function renderCalendar() {
+      const calendarDiv = document.getElementById("calendarGrid");
+      // Ensure weekdays header is visible in month view
+      const weekdaysRow = document.querySelector(".weekdays");
+      if (weekdaysRow) weekdaysRow.style.display = "grid";
+      // ensure grid class for month view
+      calendarDiv.classList.remove("year-view");
+      calendarDiv.classList.add("calendar-grid");
+
+      const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+      const firstWeekday = getFirstWeekday(currentYear, currentMonth);
+      calendarDiv.innerHTML = "";
+      const monthKey = getMonthKey(currentYear, currentMonth);
+      if (!appData[monthKey]) appData[monthKey] = {};
+      const monthData = appData[monthKey];
+
+      const streakRanges = getConsecutiveRangesInMonth(monthData, daysInMonth);
+
+      function isInConsecutiveStreak(day) {
+        for (let block of streakRanges) {
+          if (block.length >= 2 && block.includes(day)) return true;
+        }
+        return false;
+      }
+
+      function shouldShowTrophy(day, isComp) {
+        if (!isComp) return false;
+        const milestones = [5, 10, 15, 20, 25, 30];
+        if (!milestones.includes(day)) return false;
+        for (let block of streakRanges) {
+          if (block.includes(day) && block.length >= day) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      for (let i = 0; i < daysInMonth; i++) {
+        const dayNumber = i + 1;
+        const isCompleted = monthData[dayNumber] === true;
+        const cell = document.createElement("div");
+        cell.className = "day-cell";
+        if (isCompleted) cell.classList.add("completed");
+        if (isCompleted && isInConsecutiveStreak(dayNumber)) {
+          cell.classList.add("streak-glow");
+        }
+        cell.innerText = dayNumber;
+        if (shouldShowTrophy(dayNumber, isCompleted)) {
+          const trophySpan = document.createElement("span");
+          trophySpan.className = "milestone-badge";
+          trophySpan.innerText = "🏆";
+          cell.style.position = "relative";
+          cell.appendChild(trophySpan);
+        }
+
+        // Determine whether this day is in the past (strictly before today).
+        const today = new Date();
+        const todayY = today.getFullYear();
+        const todayM = today.getMonth();
+        const todayD = today.getDate();
+
+        let isPast = false;
+        if (currentYear < todayY) isPast = true;
+        else if (currentYear === todayY && currentMonth < todayM) isPast = true;
+        else if (
+          currentYear === todayY &&
+          currentMonth === todayM &&
+          dayNumber < todayD
+        )
+          isPast = true;
+
+        if (isPast) {
+          // Mark visually and prevent interaction for past days
+          cell.classList.add("past-day");
+          cell.setAttribute("aria-disabled", "true");
+          cell.title = "This day is in the past and locked.";
+        } else {
+          // Only attach click handler for today or future days
+          cell.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleDay(dayNumber);
+          });
+          cell.title = "Click to toggle completion";
+        }
+
+        calendarDiv.appendChild(cell);
+      }
+
+      // Add empty cells for days before month start
+      for (let i = 0; i < firstWeekday; i++) {
+        let emptyCell = document.createElement("div");
+        emptyCell.style.background = "transparent";
+        emptyCell.style.cursor = "default";
+        emptyCell.style.aspectRatio = "1/1";
+        emptyCell.style.borderRadius = "1rem";
+        calendarDiv.prepend(emptyCell);
+      }
+    }
+
+    // Render a Year view: 12 month-cards showing completion percent for the selected year
+    function renderYearView() {
+      const calendarDiv = document.getElementById("calendarGrid");
+      // Hide weekday labels when showing year view
+      const weekdaysRow = document.querySelector(".weekdays");
+      if (weekdaysRow) weekdaysRow.style.display = "none";
+      calendarDiv.innerHTML = "";
+      calendarDiv.classList.remove("calendar-grid");
+      calendarDiv.classList.add("year-view");
+
+      for (let m = 0; m < 12; m++) {
+        const monthName = new Date(currentYear, m, 1).toLocaleString(
+          "default",
+          {
+            month: "short",
+          },
+        );
+
+        const daysInMonth = getDaysInMonth(currentYear, m);
+        const key = getMonthKey(currentYear, m);
+        let completed = 0;
+        if (appData[key]) {
+          for (let d = 1; d <= daysInMonth; d++)
+            if (appData[key][d] === true) completed++;
+        }
+        const percent =
+          daysInMonth > 0 ? Math.round((completed / daysInMonth) * 100) : 0;
+
+        const card = document.createElement("div");
+        card.className = "month-card";
+        card.title = `${monthName} ${currentYear}: ${completed}/${daysInMonth} days completed`;
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "month-name";
+        nameEl.innerText = monthName;
+
+        const pctEl = document.createElement("div");
+        pctEl.className = "month-pct";
+        pctEl.innerText = `${percent}%`;
+
+        const miniBg = document.createElement("div");
+        miniBg.className = "mini-progress-bg";
+        const miniFill = document.createElement("div");
+        miniFill.className = "mini-progress-fill";
+        miniFill.style.width = `${percent}%`;
+        miniBg.appendChild(miniFill);
+
+        card.appendChild(nameEl);
+        card.appendChild(pctEl);
+        card.appendChild(miniBg);
+
+        // click a month to switch to month view focused on that month
+        card.addEventListener("click", () => {
+          viewMode = "month";
+          currentMonth = m;
+          // update selects
+          const monthSelect = document.getElementById("monthSelect");
+          if (monthSelect) monthSelect.value = currentMonth;
+          // ensure calendar-grid class set back
+          calendarDiv.classList.remove("year-view");
+          calendarDiv.classList.add("calendar-grid");
+          refreshAll();
+          // toggle active buttons
+          document.getElementById("monthViewBtn")?.classList.add("active");
+          document.getElementById("yearViewBtn")?.classList.remove("active");
+        });
+
+        calendarDiv.appendChild(card);
+      }
+    }
+
+    function updateProgressBarAndStats() {
+      const monthKey = getMonthKey(currentYear, currentMonth);
+      const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+      let completedCount = 0;
+      if (appData[monthKey]) {
+        for (let d = 1; d <= daysInMonth; d++) {
+          if (appData[monthKey][d] === true) completedCount++;
+        }
+      }
+      let percent = (completedCount / daysInMonth) * 100;
+      const percentSpan = document.getElementById("progressPercent");
+      const rounded = Math.round(percent);
+      percentSpan.innerText = `${rounded}%`;
+
+      // Update stats
+      document.getElementById("monthlyCompletedCount").innerText =
+        completedCount;
+      document.getElementById("monthlyTotalDays").innerText = daysInMonth;
+      document.getElementById("monthlyCompletionRate").innerText =
+        `${Math.round(percent)}%`;
+    }
+
+    function updateWeeklyChart() {
+      // Build weekly completion counts (Sun-Sat weeks) for current month and render a bar chart
+      const monthKey = getMonthKey(currentYear, currentMonth);
+      const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+      const firstDate = new Date(currentYear, currentMonth, 1);
+      const firstWeekdayOfMonth = firstDate.getDay();
+
+      const weeks = [];
+      let day = 1;
+      while (day <= daysInMonth) {
+        const index = Math.floor((firstWeekdayOfMonth + day - 1) / 7);
+        if (!weeks[index]) weeks[index] = new Array(7).fill(null);
+        const weekday = (firstWeekdayOfMonth + day - 1) % 7;
+        weeks[index][weekday] = day;
+        day++;
+      }
+
+      const weekCounts = weeks.map((w) =>
+        w.reduce(
+          (sum, d) => (d && appData[monthKey]?.[d] === true ? sum + 1 : sum),
+          0,
+        ),
+      );
+
+      const labels = weekCounts.map((_, i) => `Wk ${i + 1}`);
+      const dataVals = weekCounts;
+
+      const canvas = document.getElementById("weeklyChart");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+
+      const cssColor =
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--day-completed",
+        ) || "#22c55e";
+      const bgColor = cssColor.trim();
+
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
+      weeklyChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "✅ Completed Days",
+              data: dataVals,
+              backgroundColor: bgColor,
+              borderRadius: 8,
+              barPercentage: 0.65,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: getComputedStyle(
+                  document.documentElement,
+                ).getPropertyValue("--text-secondary"),
+              },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1,
+                color: getComputedStyle(
+                  document.documentElement,
+                ).getPropertyValue("--text-secondary"),
+              },
+              grid: {
+                color: getComputedStyle(
+                  document.documentElement,
+                ).getPropertyValue("--chart-grid"),
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // CSV export removed per user request.
+
+    // Clear all app data after asking for confirmation.
+    function resetAllData() {
+      const ok = confirm(
+        "Are you sure you want to reset all progress? This will clear all tracked days across all months.",
+      );
+      if (!ok) return;
+
+      // Clear in-memory and localStorage
+      appData = {};
+      saveToLocal();
+
+      // Ensure current month key exists so UI doesn't break
+      const key = getMonthKey(currentYear, currentMonth);
+      if (!appData[key]) appData[key] = {};
+
+      refreshAll();
+      showMotivationPopup("All progress cleared. Start fresh! 🧹");
+    }
+
+    // Expose the reset function so it can be invoked from the browser console
+    // Usage: open DevTools Console and run `window.resetAllData()`
+    // Note: this is irreversible and clears all months' data from localStorage.
+    window.resetAllData = resetAllData;
+
+    function populateMonthYear() {
+      const monthSelect = document.getElementById("monthSelect");
+      const yearSelect = document.getElementById("yearSelect");
+      monthSelect.innerHTML = "";
+      yearSelect.innerHTML = "";
+
+      for (let m = 0; m < 12; m++) {
+        let option = document.createElement("option");
+        option.value = m;
+        option.innerText = new Date(2000, m, 1).toLocaleString("default", {
+          month: "long",
+        });
+        monthSelect.appendChild(option);
+      }
+
+      const startYear = 2020;
+      const endYear = 2032;
+      for (let y = startYear; y <= endYear; y++) {
+        let opt = document.createElement("option");
+        opt.value = y;
+        opt.innerText = y;
+        yearSelect.appendChild(opt);
+      }
+
+      monthSelect.value = currentMonth;
+      yearSelect.value = currentYear;
+
+      monthSelect.addEventListener("change", (e) => {
+        currentMonth = parseInt(e.target.value);
+        const key = getMonthKey(currentYear, currentMonth);
+        if (!appData[key]) appData[key] = {};
+        saveToLocal();
+        refreshAll();
+      });
+
+      yearSelect.addEventListener("change", (e) => {
+        currentYear = parseInt(e.target.value);
+        const key = getMonthKey(currentYear, currentMonth);
+        if (!appData[key]) appData[key] = {};
+        saveToLocal();
+        refreshAll();
+      });
+    }
+
+    function refreshAll() {
+      if (viewMode === "month") renderCalendar();
+      else renderYearView();
+      updateProgressBarAndStats();
+      updateWeeklyChart();
+    }
+
+    function initTheme() {
+      // Use the new checkbox toggle. Persist state in localStorage.
+      const modeToggle = document.getElementById("mode-toggle");
+      const savedDark = localStorage.getItem("theme") === "dark";
+      if (savedDark) document.body.classList.add("dark");
+      if (modeToggle) {
+        modeToggle.checked = savedDark;
+        modeToggle.addEventListener("change", () => {
+          const isDark = modeToggle.checked;
+          document.body.classList.toggle("dark", isDark);
+          localStorage.setItem("theme", isDark ? "dark" : "light");
+          updateWeeklyChart();
+        });
+      }
+    }
+
+    function init() {
+      loadData();
+      populateMonthYear();
+      initTheme();
+      // streak and donut removed
+      refreshAll();
+      // View toggle buttons (Month / Year)
+      const monthViewBtn = document.getElementById("monthViewBtn");
+      const yearViewBtn = document.getElementById("yearViewBtn");
+      if (monthViewBtn && yearViewBtn) {
+        monthViewBtn.addEventListener("click", () => {
+          viewMode = "month";
+          monthViewBtn.classList.add("active");
+          yearViewBtn.classList.remove("active");
+          refreshAll();
+        });
+        yearViewBtn.addEventListener("click", () => {
+          viewMode = "year";
+          yearViewBtn.classList.add("active");
+          monthViewBtn.classList.remove("active");
+          refreshAll();
+        });
+      }
+    }
+
+    init();
+  </script>
+</html>
