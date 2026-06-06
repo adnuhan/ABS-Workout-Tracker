@@ -37,11 +37,50 @@ A simple, interactive, and responsive web application to track your daily ab wor
 
 ## 📸 Preview
 
-![ABS Workout Tracker Screenshot](screenshot.png)
-
-
 <img width="1366" height="768" alt="Screenshot 2026-06-07 025138" src="https://github.com/user-attachments/assets/48d4805c-924a-4dc3-9086-4e829b3462fa" />
 
 ---
 
 ## 📂 Project Structure
+ABS-Workout-Tracker/
+├── index.html # Main HTML structure
+├── style.css # Styling and responsive design
+├── script.js # Workout tracking logic
+├── README.md # Project documentation
+
+---
+
+## 👤 Author
+
+**Nahunda Bekele**
+
+- GitHub: [https://github.com/adnuhan/](https://github.com/adnuhan/)
+- Portfolio: [https://my-portfolio-delta-tan-21.vercel.app/](https://my-portfolio-delta-tan-21.vercel.app/)
+
+---
+
+## 🙏 Acknowledgments
+
+- Inspired by the need to stay consistent with ab workouts
+- Icons from FontAwesome (if used)
+- Built with pure web technologies
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** – feel free to use, modify, and share for your personal fitness journey or even commercial use.
+
+---
+
+## ⭐ Show Your Support
+
+If this tracker helps you stay consistent with your ab workouts, please consider:
+
+- ⭐ Starring the repository
+- 🍴 Forking the project
+- 📢 Sharing it with fellow fitness enthusiasts
+
+---
+
+**"Consistency beats intensity – track your abs journey one day at a time!"** 💪🔥
