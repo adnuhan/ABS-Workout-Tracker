@@ -41,15 +41,6 @@ A simple, interactive, and responsive web application to track your daily ab wor
 
 ---
 
-## 📂 Project Structure
-ABS-Workout-Tracker/
-├── index.html # Main HTML structure
-├── style.css # Styling and responsive design
-├── script.js # Workout tracking logic
-├── README.md # Project documentation
-
----
-
 ## 👤 Author
 
 **Nahunda Bekele**
